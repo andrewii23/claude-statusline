@@ -83,6 +83,17 @@ build_bar() {
     printf "${bar_filled}${filled_str}${bar_empty}${empty_str}${reset}"
 }
 
+format_tokens() {
+    local num=$1
+    if [ "$num" -ge 1000000 ]; then
+        awk "BEGIN {printf \"%.1fm\", $num / 1000000}"
+    elif [ "$num" -ge 1000 ]; then
+        awk "BEGIN {printf \"%.0fk\", $num / 1000}"
+    else
+        printf "%d" "$num"
+    fi
+}
+
 model_name=$(echo "$input" | jq -r '.model.display_name // "Claude"')
 
 size=$(echo "$input" | jq -r '.context_window.context_window_size // 200000')
@@ -99,10 +110,13 @@ else
     pct_used=0
 fi
 
+used_tokens=$(format_tokens $current)
+total_tokens=$(format_tokens $size)
+
 context_bar=$(build_bar "$pct_used" 10)
 context_pct_fmt=$(printf "%3d" "$pct_used")
 
-line1="${white}${model_name}${reset}${sep}${context_bar} ${white}${context_pct_fmt}%${reset}"
+line1="${white}${model_name}${reset}${sep}${context_bar} ${white}${context_pct_fmt}%${reset}${sep}${white}${used_tokens}/${total_tokens}${reset}"
 
 get_oauth_token() {
     local token=""
