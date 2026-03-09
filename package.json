@@ -1,0 +1,21 @@
+{
+  "name": "@anthropic-ii23/claude-statusline",
+  "version": "1.0.0",
+  "description": "Minimal Claude Code statusline with usage bars and rate limit tracking",
+  "bin": {
+    "claude-statusline": "bin/install.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "statusline",
+    "cli"
+  ],
+  "author": "ii23",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrewii23/claude-statusline.git"
+  },
+  "homepage": "https://github.com/andrewii23/claude-statusline"
+}
