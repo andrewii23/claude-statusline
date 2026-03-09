@@ -5,7 +5,7 @@ Minimal Claude Code statusline with usage bars and rate limit tracking.
 <!-- TODO: Add screenshot here -->
 
 ## What It Shows
-<img width="830" height="132" alt="CleanShot 2569-03-09 at 09 26 17@2x" src="https://github.com/user-attachments/assets/30325f24-05b9-48a3-a4cb-3d61f1118e12" />
+<img width="730" height="128" alt="CleanShot 2569-03-09 at 09 52 49@2x" src="https://github.com/user-attachments/assets/bc9aae8e-209c-4a10-a656-aeb190aff8fa" />
 
 - **Line 1** - Model name and context window usage
 - **Line 2** - Current (5-hour) rate limit with reset time
