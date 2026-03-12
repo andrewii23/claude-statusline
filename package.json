@@ -1,5 +1,5 @@
 {
-  "name": "@anthropic-ii23/claude-statusline",
+  "name": "@andrewii23/claude-statusline",
   "version": "1.0.0",
   "description": "Minimal Claude Code statusline with usage bars and rate limit tracking",
   "bin": {

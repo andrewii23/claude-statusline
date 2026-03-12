@@ -14,7 +14,7 @@ Minimal Claude Code statusline with usage bars and rate limit tracking.
 ## Install
 
 ```bash
-npx @anthropic-ii23/claude-statusline
+npx @andrewii23/claude-statusline
 ```
 
 This will:
@@ -27,7 +27,7 @@ Restart Claude Code to see the statusline.
 ## Uninstall
 
 ```bash
-npx @anthropic-ii23/claude-statusline --uninstall
+npx @andrewii23/claude-statusline --uninstall
 ```
 
 Restores your previous statusline from backup if available.
