@@ -1,6 +1,6 @@
 {
   "name": "@andrewii23/claude-statusline",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Minimal Claude Code statusline with usage bars and rate limit tracking",
   "bin": {
     "claude-statusline": "bin/install.js"
