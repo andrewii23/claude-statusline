@@ -7,10 +7,9 @@ Minimal Claude Code statusline with usage bars and rate limit tracking.
 ## What It Shows
 <img width="730" height="128" alt="CleanShot 2569-03-09 at 09 52 49@2x" src="https://github.com/user-attachments/assets/bc9aae8e-209c-4a10-a656-aeb190aff8fa" />
 
-- **Line 1** - Model name and context window usage
-- **Session** - 5-hour limit with reset time (only on plans that still have one; the $200 plan doesn't)
+- **Line 1** - Model name, your plan (e.g. Ultra, Max) and context window usage
+- **Current** - 5-hour session limit with reset time, only on plans that still have one (the $200 Ultra plan doesn't)
 - **Weekly** - 7-day limit with reset time, plus a per-model weekly line (e.g. Fable) once you use it
-- **Credit** - the dollar allowance the usage endpoint reports for your plan, with its reset date
 
 Usage comes from the same endpoint Claude Code's `/usage` reads. One session refreshes it at a time, at most every 2 minutes, and backs off 5 minutes after a failure; if it can't refresh for 10 minutes the statusline says how old the numbers are.
 

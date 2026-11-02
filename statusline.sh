@@ -1,11 +1,18 @@
 #!/bin/bash
 set -f
 
+account_file="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
+IFS=$'\t' read -r account_id plan_name <<< "$(jq -r '[(.oauthAccount.accountUuid // "default")[0:8], (.oauthAccount.planDisplayName // "")] | @tsv' "$account_file" 2>/dev/null)"
+account_id=${account_id:-default}
+cache_file="/tmp/claude/statusline-usage-${account_id}.json"
+fail_file="/tmp/claude/statusline-usage-${account_id}.fail"
+lock_dir="/tmp/claude/statusline-usage-${account_id}.lock"
+
 # statusline.sh --check: is the usage data working? Shows the plan, a live call to the
 # usage endpoint, which limits the plan has, the cache state and a sample render.
 if [ "$1" = "--check" ]; then
     blob=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null || cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
-    echo "plan:   $(echo "$blob" | jq -r '.claudeAiOauth | "\(.subscriptionType // "?") (\(.rateLimitTier // "?"))"' 2>/dev/null)"
+    echo "plan:   ${plan_name:-?} · $(echo "$blob" | jq -r '.claudeAiOauth | "\(.subscriptionType // "?") (\(.rateLimitTier // "?"))"' 2>/dev/null) · account ${account_id}"
     token=$(echo "$blob" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
     [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] && token="$CLAUDE_CODE_OAUTH_TOKEN"
     if [ -z "$token" ]; then echo "token:  not found (log in to Claude Code first)"; exit 1; fi
@@ -17,10 +24,10 @@ if [ "$1" = "--check" ]; then
     if [ "$code" = "200" ]; then
         jq -r '"limits: " + ([.limits[]? | "\(.kind)\(if .scope.model.display_name then "(" + .scope.model.display_name + ")" else "" end) \(.percent)%"] | join(", "))' "$tmp"
         jq -r '"5-hour: " + (if .five_hour then "\(.five_hour.utilization)%" else "none on this plan" end)' "$tmp"
-        mkdir -p /tmp/claude && cp "$tmp" /tmp/claude/statusline-usage-cache.json && rm -f /tmp/claude/statusline-usage-fail
+        mkdir -p /tmp/claude && cp "$tmp" "$cache_file" && rm -f "$fail_file"
     fi
     rm -f "$tmp"
-    for f in /tmp/claude/statusline-usage-cache.json /tmp/claude/statusline-usage-fail; do
+    for f in "$cache_file" "$fail_file"; do
         [ -f "$f" ] && echo "file:   $f ($(( $(date +%s) - $(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f") ))s old)"
     done
     echo "render:"
@@ -145,7 +152,9 @@ total_tokens=$(format_tokens $size)
 context_bar=$(build_bar "$pct_used" 10)
 context_pct_fmt=$(printf "%3d" "$pct_used")
 
-line1="${white}${model_name}${reset}${sep}${context_bar} ${white}${context_pct_fmt}%${reset}${sep}${white}${used_tokens}/${total_tokens}${reset}"
+plan_part=""
+[ -n "$plan_name" ] && plan_part="${dim}${plan_name}${reset}${sep}"
+line1="${white}${model_name}${reset}${sep}${plan_part}${context_bar} ${white}${context_pct_fmt}%${reset}${sep}${white}${used_tokens}/${total_tokens}${reset}"
 
 get_oauth_token() {
     local token=""
@@ -191,9 +200,6 @@ get_oauth_token() {
     echo ""
 }
 
-cache_file="/tmp/claude/statusline-usage-cache.json"
-fail_file="/tmp/claude/statusline-usage-fail"
-lock_dir="/tmp/claude/statusline-usage.lock"
 cache_max_age=120
 mkdir -p /tmp/claude
 
@@ -241,14 +247,14 @@ usage_data=$(cat "$cache_file" 2>/dev/null)
 rate_lines=""
 
 if [ -n "$usage_data" ]; then
-    # Plans list their limits in .limits (session, weekly, per-model weekly); the $200 plan
-    # has no session limit. Older responses only have five_hour / seven_day.
+    # Plans list their limits in .limits: a 5-hour session limit ("Current", only on plans that
+    # have one; the $200 Ultra plan doesn't), weekly, and per-model weekly. Older responses only have five_hour / seven_day.
     rows=$(echo "$usage_data" | jq -r '
         (if (.limits | type) == "array" and (.limits | length) > 0 then
             [.limits[]
              | select(.kind == "session" or .kind == "weekly_all"
                       or (.kind == "weekly_scoped" and ((.percent // 0) > 0 or .is_active == true)))
-             | [ (if .kind == "session" then "Session"
+             | [ (if .kind == "session" then "Current"
                   elif .kind == "weekly_all" then "Weekly"
                   else (.scope.model.display_name // .scope.surface // "Scoped") end),
                  (.percent // 0 | round), (.resets_at // "null"),
@@ -257,22 +263,12 @@ if [ -n "$usage_data" ]; then
             [ (if .five_hour then ["Current", (.five_hour.utilization // 0 | round), (.five_hour.resets_at // "null"), "time"] else empty end),
               (if .seven_day then ["Weekly", (.seven_day.utilization // 0 | round), (.seven_day.resets_at // "null"), "datetime"] else empty end) ]
          end)[] | @tsv')
-    # Monthly usage credit that comes with the plan (dollars).
-    credit=$(echo "$usage_data" | jq -r '[.[] | objects | select(.limit_dollars != null and .used_dollars != null)][0]
-        | select(. != null) | [(.utilization // 0 | round), (.used_dollars | tostring), (.limit_dollars | tostring), (.resets_at // "null")] | @tsv')
 
     while IFS=$'\t' read -r label pct reset_iso style; do
         [ -z "$label" ] && continue
         [ -n "$rate_lines" ] && rate_lines+="\n"
         rate_lines+="${white}$(printf '%-7s' "$label")${reset}${sep}$(build_bar "$pct" 10) ${white}$(printf '%3d' "$pct")%${reset}${sep}${white}$(format_reset_time "$reset_iso" "$style")${reset}"
     done <<< "$rows"
-
-    if [ -n "$credit" ]; then
-        IFS=$'\t' read -r c_pct c_used c_limit c_reset <<< "$credit"
-        c_used_fmt=$(awk "BEGIN {printf \"%.2f\", $c_used}")
-        [ -n "$rate_lines" ] && rate_lines+="\n"
-        rate_lines+="${white}Credit ${reset}${sep}$(build_bar "$c_pct" 10) ${white}$(printf '%3d' "$c_pct")%${reset}${sep}${white}\$${c_used_fmt}/\$${c_limit} · $(format_reset_time "$c_reset" "datetime")${reset}"
-    fi
 
     if [ "$cache_age" -gt 600 ]; then
         rate_lines+="\n${dim}usage from $(date -r $(( $(date +%s) - cache_age )) +"%b %-d %H:%M") (refresh failing: $(cat "$fail_file" 2>/dev/null || echo "?"))${reset}"
