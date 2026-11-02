@@ -14,7 +14,7 @@ if [ "$1" = "--check" ]; then
     blob=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null || cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
     echo "plan:   ${plan_name:-?} · $(echo "$blob" | jq -r '.claudeAiOauth | "\(.subscriptionType // "?") (\(.rateLimitTier // "?"))"' 2>/dev/null) · account ${account_id}"
     token=$(echo "$blob" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
-    [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] && token="$CLAUDE_CODE_OAUTH_TOKEN"
+    [ -z "$token" ] && token="$CLAUDE_CODE_OAUTH_TOKEN"
     if [ -z "$token" ]; then echo "token:  not found (log in to Claude Code first)"; exit 1; fi
     ver=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     tmp=$(mktemp)
@@ -159,11 +159,6 @@ line1="${white}${model_name}${reset}${sep}${plan_part}${context_bar} ${white}${c
 get_oauth_token() {
     local token=""
 
-    if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
-        echo "$CLAUDE_CODE_OAUTH_TOKEN"
-        return 0
-    fi
-
     if command -v security >/dev/null 2>&1; then
         local blob
         blob=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
@@ -183,6 +178,12 @@ get_oauth_token() {
             echo "$token"
             return 0
         fi
+    fi
+
+    # Last: a `claude setup-token` token (CLAUDE_CODE_OAUTH_TOKEN) has no user:profile scope, so the usage endpoint answers it 403.
+    if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+        echo "$CLAUDE_CODE_OAUTH_TOKEN"
+        return 0
     fi
 
     if command -v secret-tool >/dev/null 2>&1; then
