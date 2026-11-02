@@ -264,12 +264,22 @@ if [ -n "$usage_data" ]; then
             [ (if .five_hour then ["Current", (.five_hour.utilization // 0 | round), (.five_hour.resets_at // "null"), "time"] else empty end),
               (if .seven_day then ["Weekly", (.seven_day.utilization // 0 | round), (.seven_day.resets_at // "null"), "datetime"] else empty end) ]
          end)[] | @tsv')
+    # Monthly dollar allowance that comes with the plan.
+    credit=$(echo "$usage_data" | jq -r '[.[] | objects | select(.limit_dollars != null and .used_dollars != null)][0]
+        | select(. != null) | [(.utilization // 0 | round), (.used_dollars | tostring), (.limit_dollars | tostring), (.resets_at // "null")] | @tsv')
 
     while IFS=$'\t' read -r label pct reset_iso style; do
         [ -z "$label" ] && continue
         [ -n "$rate_lines" ] && rate_lines+="\n"
         rate_lines+="${white}$(printf '%-7s' "$label")${reset}${sep}$(build_bar "$pct" 10) ${white}$(printf '%3d' "$pct")%${reset}${sep}${white}$(format_reset_time "$reset_iso" "$style")${reset}"
     done <<< "$rows"
+
+    if [ -n "$credit" ]; then
+        IFS=$'\t' read -r c_pct c_used c_limit c_reset <<< "$credit"
+        c_used_fmt=$(awk "BEGIN {printf \"%.2f\", $c_used}")
+        [ -n "$rate_lines" ] && rate_lines+="\n"
+        rate_lines+="${white}Credit ${reset}${sep}$(build_bar "$c_pct" 10) ${white}$(printf '%3d' "$c_pct")%${reset}${sep}${white}\$${c_used_fmt}/\$${c_limit} · $(format_reset_time "$c_reset" "datetime")${reset}"
+    fi
 
     if [ "$cache_age" -gt 600 ]; then
         rate_lines+="\n${dim}usage from $(date -r $(( $(date +%s) - cache_age )) +"%b %-d %H:%M") (refresh failing: $(cat "$fail_file" 2>/dev/null || echo "?"))${reset}"
