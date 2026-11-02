@@ -8,8 +8,19 @@ Minimal Claude Code statusline with usage bars and rate limit tracking.
 <img width="730" height="128" alt="CleanShot 2569-03-09 at 09 52 49@2x" src="https://github.com/user-attachments/assets/bc9aae8e-209c-4a10-a656-aeb190aff8fa" />
 
 - **Line 1** - Model name and context window usage
-- **Line 2** - Current (5-hour) rate limit with reset time
-- **Line 3** - Weekly (7-day) rate limit with reset time
+- **Session** - 5-hour limit with reset time (only on plans that still have one; the $200 plan doesn't)
+- **Weekly** - 7-day limit with reset time, plus a per-model weekly line (e.g. Fable) once you use it
+- **Credit** - the dollar allowance the usage endpoint reports for your plan, with its reset date
+
+Usage comes from the same endpoint Claude Code's `/usage` reads. One session refreshes it at a time, at most every 2 minutes, and backs off 5 minutes after a failure; if it can't refresh for 10 minutes the statusline says how old the numbers are.
+
+## Check
+
+```bash
+bash ~/.claude/statusline.sh --check
+```
+
+Shows your plan, a live call to the usage endpoint (HTTP status), which limits your plan has, and a sample render.
 
 ## Install
 
